@@ -5,7 +5,7 @@ import { env } from "~/env";
 export const msalConfig: Configuration = {
   auth: {
     clientId: env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID,
-    authority: `https://login.microsoftonline.com/${env.NEXT_PUBLIC_AZURE_AD_TENANT_ID}`,
+    authority: `https://login.microsoftonline.com/common`,
     // Use a relative URI so MSAL resolves it against the current browser origin.
     redirectUri: "/",
     postLogoutRedirectUri: "/",

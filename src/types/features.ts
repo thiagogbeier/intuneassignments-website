@@ -51,6 +51,15 @@ export interface DiskEncryptionPolicy {
   assignments?: { id: string; target?: any }[];
 }
 
+export interface WindowsLapsPolicy {
+  id: string;
+  displayName?: string;
+  description?: string;
+  templateId?: string;
+  isAssigned?: boolean;
+  assignments?: { id: string; target?: any }[];
+}
+
 export interface CloudPKICertificateAuthority {
   id: string;
   displayName?: string;
@@ -178,4 +187,5 @@ export interface FeaturesData {
   intuneAdmins: IntuneAdmin[];
   tunnelGateway: TunnelGatewayData;
   connectors: ConnectorsData;
+  windowsLapsPolicies: WindowsLapsPolicy[];
 }

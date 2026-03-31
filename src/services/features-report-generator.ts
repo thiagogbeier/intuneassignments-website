@@ -96,6 +96,13 @@ export function generateFeaturesHtmlReport(data: FeaturesData): string {
       : "—",
   ]);
 
+  // Windows LAPS table
+  const lapsRows = data.windowsLapsPolicies.map((p) => [
+    p.displayName ?? "—",
+    p.description ?? "—",
+    p.isAssigned ? "Yes" : "No",
+  ]);
+
   // Diagnostic settings table
   const diagRows = data.diagnosticSettings.map((d) => {
     const extractName = (rid?: string | null) => {
@@ -217,6 +224,9 @@ ${tableHtml(["Partner Name", "State"], partnerRows)}` : ""}
 
 ${data.cloudPKICAs.length > 0 ? `<h3>Cloud PKI Certificate Authorities (${data.cloudPKICAs.length})</h3>
 ${tableHtml(["CA Name", "Type", "Common Name", "Status", "Issuance", "Expiration"], caRows)}` : ""}
+
+${data.windowsLapsPolicies.length > 0 ? `<h3>Windows LAPS Policies (${data.windowsLapsPolicies.length})</h3>
+${tableHtml(["Policy Name", "Description", "Assigned"], lapsRows)}` : ""}
 
 ${data.diagnosticSettings.length > 0 ? `<h3>Diagnostic Settings (${data.diagnosticSettings.length})</h3>
 ${tableHtml(["Name", "Storage Account", "Event Hub", "Log Analytics Workspace", "Partner Solution"], diagRows)}` : ""}

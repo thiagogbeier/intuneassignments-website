@@ -11,6 +11,7 @@ import {
   fetchScopeTags,
   fetchCompliancePartners,
   fetchDiskEncryptionPolicies,
+  fetchWindowsLapsPolicies,
   fetchCloudPKICAs,
   fetchDiagnosticSettings,
   fetchTunnelGateway,
@@ -44,6 +45,7 @@ export function useIntuneFeatures() {
         scopeTags,
         compliancePartners,
         diskEncryptionPolicies,
+        windowsLapsPolicies,
         cloudPKICAs,
         diagnosticSettings,
         tunnelGateway,
@@ -55,6 +57,7 @@ export function useIntuneFeatures() {
         fetchScopeTags(token),
         fetchCompliancePartners(token),
         fetchDiskEncryptionPolicies(token),
+        fetchWindowsLapsPolicies(token),
         fetchCloudPKICAs(token),
         fetchDiagnosticSettings(token),
         fetchTunnelGateway(token),
@@ -119,6 +122,16 @@ export function useIntuneFeatures() {
               : "No disk encryption policies found",
         },
         {
+          id: "windows-laps",
+          name: "Windows LAPS",
+          status:
+            windowsLapsPolicies.length > 0 ? "detected" : "not_detected",
+          details:
+            windowsLapsPolicies.length > 0
+              ? `${windowsLapsPolicies.length} policy(ies), ${windowsLapsPolicies.filter((p) => p.isAssigned).length} assigned`
+              : "No Windows LAPS policies found",
+        },
+        {
           id: "cloud-pki",
           name: "Cloud PKI",
           status: cloudPKICAs.length > 0 ? "detected" : "not_detected",
@@ -179,6 +192,7 @@ export function useIntuneFeatures() {
         diagnosticSettings,
         tunnelGateway,
         connectors,
+        windowsLapsPolicies,
         intuneAdmins,
       };
     },

@@ -179,6 +179,23 @@ export function FeatureDetailSection({ data }: FeatureDetailSectionProps) {
             </AccordionContent>
           </AccordionItem>
 
+          {/* Windows LAPS */}
+          <AccordionItem value="windows-laps" className="border rounded-lg px-4">
+            <AccordionTrigger className="text-sm font-medium">
+              Windows LAPS Policies ({data.windowsLapsPolicies.length})
+            </AccordionTrigger>
+            <AccordionContent>
+              <SimpleTable
+                headers={["Policy Name", "Description", "Assigned"]}
+                rows={data.windowsLapsPolicies.map((p) => [
+                  p.displayName ?? "—",
+                  p.description ?? "—",
+                  p.isAssigned ? "Yes" : "No",
+                ])}
+              />
+            </AccordionContent>
+          </AccordionItem>
+
           {/* Cloud PKI */}
           <AccordionItem value="cloud-pki" className="border rounded-lg px-4">
             <AccordionTrigger className="text-sm font-medium">

@@ -7,6 +7,7 @@ import type {
   RoleScopeTag,
   CompliancePartner,
   DiskEncryptionPolicy,
+  WindowsLapsPolicy,
   CloudPKICertificateAuthority,
   DiagnosticSetting,
   RoleAssignment,
@@ -261,6 +262,88 @@ export async function fetchDiskEncryptionPolicies(
       isAssigned: assignments.length > 0,
       assignments,
     });
+  }
+
+  return resolved;
+}
+
+// ─── Windows LAPS ────────────────────────────────────────────────────────────
+
+export async function fetchWindowsLapsPolicies(
+  token: string,
+): Promise<WindowsLapsPolicy[]> {
+  const client = getClient(token);
+  const resolved: WindowsLapsPolicy[] = [];
+
+  const isLaps = (item: any): boolean => {
+    const templateFamily =
+      item.templateReference?.templateFamily ?? "";
+    const templateDisplayName =
+      (item.templateDisplayName ?? "").toLowerCase();
+    const name = (item.displayName ?? "").toLowerCase();
+    const templateId =
+      (item.templateReference?.templateId ?? item.templateId ?? "").toLowerCase();
+
+    return (
+      templateFamily === "endpointSecurityAccountProtection" ||
+      templateDisplayName.includes("laps") ||
+      templateDisplayName.includes("account protection") ||
+      templateDisplayName.includes("local admin password") ||
+      name.includes("laps") ||
+      templateId.includes("accountprotection") ||
+      templateId.includes("laps")
+    );
+  };
+
+  try {
+    let items: any[] = [];
+    const res = await client
+      .api("/deviceManagement/configurationPolicies")
+      .version("beta")
+      .get();
+    items = res.value ?? [];
+    let nextLink = res["@odata.nextLink"];
+    while (nextLink) {
+      try {
+        const nr = await client.api(nextLink).get();
+        items.push(...(nr.value ?? []));
+        nextLink = nr["@odata.nextLink"];
+      } catch {
+        break;
+      }
+    }
+
+    const lapsPolicies = items.filter(isLaps);
+    console.log(
+      `[features] Windows LAPS: ${lapsPolicies.length} from configPolicies`,
+    );
+
+    for (const p of lapsPolicies) {
+      let assignments: any[] = [];
+      try {
+        const aRes = await client
+          .api(`/deviceManagement/configurationPolicies/${p.id}/assignments`)
+          .version("beta")
+          .get();
+        assignments = aRes.value ?? [];
+      } catch {
+        // ignore
+      }
+
+      resolved.push({
+        id: p.id,
+        displayName: p.displayName ?? "Unnamed",
+        description: p.description ?? "",
+        templateId: p.templateReference?.templateId ?? p.templateId,
+        isAssigned: assignments.length > 0,
+        assignments,
+      });
+    }
+  } catch (err: any) {
+    const is403 =
+      err?.statusCode === 403 || err?.code === "Authorization_RequestDenied";
+    if (is403) console.warn("[features] 403 on configPolicies (LAPS) — skipping");
+    else console.error("[features] Failed LAPS fetch", err?.statusCode, err?.message);
   }
 
   return resolved;

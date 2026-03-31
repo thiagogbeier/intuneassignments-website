@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, ClipboardCheck, GitGraph, Columns2 } from "lucide-react";
+import { ArrowLeft, ClipboardCheck, GitGraph, Columns2, ShieldCheck, FileDown } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { SpotlightSearch } from "~/components/spotlight-search";
 import { SignOutButton } from "~/app/_components/sign-out-button";
@@ -21,6 +21,8 @@ export function AppHeader({ backHref, backLabel = "Back" }: AppHeaderProps) {
   const isDashboard = pathname === "/dashboard";
   const isGraph = pathname === "/interactive-graph";
   const isCompare = pathname === "/compare";
+  const isExport = pathname === "/export";
+  const isFeatures = pathname === "/features";
 
   const pillLink = (href: string, active: boolean, label: React.ReactNode) => (
     <Link
@@ -100,6 +102,28 @@ export function AppHeader({ backHref, backLabel = "Back" }: AppHeaderProps) {
               <GitGraph className="h-4 w-4" />
               <span>Explorer</span>
             </Link>
+            <Link
+              href="/features"
+              aria-current={isFeatures ? "page" : undefined}
+              className={cn(
+                "flex items-center gap-2 transition-colors hover:text-foreground/80",
+                isFeatures ? "text-foreground" : "text-foreground/60",
+              )}
+            >
+              <ShieldCheck className="h-4 w-4" />
+              <span>Features</span>
+            </Link>
+            <Link
+              href="/export"
+              aria-current={isExport ? "page" : undefined}
+              className={cn(
+                "flex items-center gap-2 transition-colors hover:text-foreground/80",
+                isExport ? "text-foreground" : "text-foreground/60",
+              )}
+            >
+              <FileDown className="h-4 w-4" />
+              <span>Export</span>
+            </Link>
           </nav>
 
           {/* Actions */}
@@ -113,7 +137,7 @@ export function AppHeader({ backHref, backLabel = "Back" }: AppHeaderProps) {
 
         {/* Mobile nav pills (prevents wrap + improves tap targets) */}
         <div className="sm:hidden pb-3">
-          <div className="grid w-full grid-cols-3 items-center gap-1 rounded-lg bg-muted p-1">
+          <div className="grid w-full grid-cols-5 items-center gap-1 rounded-lg bg-muted p-1">
             {pillLink("/dashboard", isDashboard, "Dashboard")}
             {pillLink(
               "/compare",
@@ -129,6 +153,22 @@ export function AppHeader({ backHref, backLabel = "Back" }: AppHeaderProps) {
               <>
                 <GitGraph className="h-4 w-4" />
                 <span>Explorer</span>
+              </>,
+            )}
+            {pillLink(
+              "/features",
+              isFeatures,
+              <>
+                <ShieldCheck className="h-4 w-4" />
+                <span>Features</span>
+              </>,
+            )}
+            {pillLink(
+              "/export",
+              isExport,
+              <>
+                <FileDown className="h-4 w-4" />
+                <span>Export</span>
               </>,
             )}
           </div>

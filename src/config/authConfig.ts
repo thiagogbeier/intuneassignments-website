@@ -50,7 +50,9 @@ export const loginRequest = {
     "DeviceManagementConfiguration.Read.All",
     "DeviceManagementServiceConfig.Read.All",
     "DeviceManagementScripts.Read.All",
-    "CloudPC.Read.All"
+    "CloudPC.Read.All",
+    "DeviceManagementRBAC.Read.All",
+    "DeviceManagementCloudCA.Read.All",
   ],
 };
 

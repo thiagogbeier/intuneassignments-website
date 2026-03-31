@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intune Assignments Visualizer - Graph API Summary</title>
+<style>
+:root { --bg: #0d1117; --fg: #e6edf3; --border: #30363d; --accent: #58a6ff; --card: #161b22; --green: #3fb950; --muted: #8b949e; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; background: var(--bg); color: var(--fg); line-height: 1.7; padding: 2rem; max-width: 1100px; margin: 0 auto; }
+h1 { font-size: 2rem; border-bottom: 1px solid var(--border); padding-bottom: .5rem; margin-bottom: 1.5rem; }
+h2 { font-size: 1.5rem; margin-top: 2.5rem; margin-bottom: 1rem; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: .3rem; }
+h3 { font-size: 1.15rem; margin-top: 1.5rem; margin-bottom: .5rem; color: var(--green); }
+p { margin-bottom: 1rem; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code { background: var(--card); padding: 2px 6px; border-radius: 4px; font-size: .9em; color: var(--green); }
+blockquote { border-left: 3px solid var(--accent); padding: .5rem 1rem; margin: 1rem 0; background: var(--card); border-radius: 0 6px 6px 0; color: var(--muted); }
+table { width: 100%; border-collapse: collapse; margin: 1rem 0 1.5rem; }
+th { background: var(--card); text-align: left; padding: 10px 12px; border: 1px solid var(--border); font-weight: 600; color: var(--accent); }
+td { padding: 8px 12px; border: 1px solid var(--border); vertical-align: top; }
+tr:hover td { background: rgba(88,166,255,.06); }
+hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+ul, ol { margin: .5rem 0 1rem 1.5rem; }
+li { margin-bottom: .3rem; }
+strong { color: var(--fg); }
+</style>
+</head>
+<body><h1>Intune Assignments Visualizer — Graph API Endpoints Summary</h1>
+<p>This document maps every Microsoft Graph API endpoint used in this application to the UI tab/feature that calls it.</p>
+<blockquote>
+<p><strong>API Version</strong>: All endpoints use the <strong>Microsoft Graph Beta API</strong> (<code>/beta/</code>) unless noted otherwise.<br><strong>Auth</strong>: All calls are made client-side using MSAL with delegated permissions.</p>
+</blockquote>
+<hr>
+<h2>Quick Reference by UI Tab</h2>
+<table>
+<thead>
+<tr>
+<th>UI Tab</th>
+<th align="center"># of Endpoints</th>
+<th>Primary Focus</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><a href="#overview">Overview</a></td>
+<td align="center">14+</td>
+<td>All policy types aggregated</td>
+</tr>
+<tr>
+<td><a href="#device-configs">Device Configs</a></td>
+<td align="center">3</td>
+<td>Configuration profiles, Settings Catalog, Admin Templates</td>
+</tr>
+<tr>
+<td><a href="#compliance">Compliance</a></td>
+<td align="center">1</td>
+<td>Device compliance policies</td>
+</tr>
+<tr>
+<td><a href="#endpoint-security">Endpoint Security</a></td>
+<td align="center">2</td>
+<td>Security intents + filtered Settings Catalog</td>
+</tr>
+<tr>
+<td><a href="#apps">Apps</a></td>
+<td align="center">5</td>
+<td>Mobile apps, App Protection, App Configuration</td>
+</tr>
+<tr>
+<td><a href="#scripts">Scripts</a></td>
+<td align="center">2</td>
+<td>Device management scripts, Proactive remediations</td>
+</tr>
+<tr>
+<td><a href="#enrollment">Enrollment</a></td>
+<td align="center">2</td>
+<td>Autopilot profiles, ESP configurations</td>
+</tr>
+<tr>
+<td><a href="#windows-365">Windows 365</a></td>
+<td align="center">2</td>
+<td>Cloud PC provisioning &amp; user settings</td>
+</tr>
+<tr>
+<td><a href="#other">Other</a></td>
+<td align="center">—</td>
+<td>Policies not matching other categories</td>
+</tr>
+<tr>
+<td><a href="#dashboard-spotlight-search">Dashboard</a></td>
+<td align="center">3</td>
+<td>User, device, and group search</td>
+</tr>
+<tr>
+<td><a href="#compare">Compare</a></td>
+<td align="center">14+</td>
+<td>Side-by-side assignment comparison</td>
+</tr>
+<tr>
+<td><a href="#explorer">Explorer</a></td>
+<td align="center">14+</td>
+<td>Interactive assignment graph visualization</td>
+</tr>
+<tr>
+<td><a href="#search">Search</a></td>
+<td align="center">3</td>
+<td>Unified search across users, devices, groups</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Overview</h2>
+<p>Fetches <strong>all</strong> policy types and displays aggregated assignment data. Calls every policy endpoint listed below, plus group name resolution.</p>
+<h3>All Policy Endpoints (called in parallel)</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Graph API Endpoint</th>
+<th>HTTP</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td><code>/deviceManagement/deviceConfigurations</code></td>
+<td>GET</td>
+<td>Device configuration profiles</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>/deviceManagement/deviceCompliancePolicies</code></td>
+<td>GET</td>
+<td>Compliance policies</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>/deviceAppManagement/mobileApps</code></td>
+<td>GET</td>
+<td>Mobile apps (filtered: <code>isAssigned eq true</code>)</td>
+</tr>
+<tr>
+<td>3a</td>
+<td><code>/deviceAppManagement/mobileApps(&#39;{id}&#39;)/assignments</code></td>
+<td>GET</td>
+<td>Per-app assignments (batched, 10 at a time)</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>/deviceManagement/deviceManagementScripts</code></td>
+<td>GET</td>
+<td>PowerShell scripts</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>/deviceManagement/configurationPolicies</code></td>
+<td>GET</td>
+<td>Settings Catalog policies</td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>/deviceManagement/groupPolicyConfigurations</code></td>
+<td>GET</td>
+<td>Administrative Templates (Group Policy)</td>
+</tr>
+<tr>
+<td>7</td>
+<td><code>/deviceAppManagement/androidManagedAppProtections</code></td>
+<td>GET</td>
+<td>Android app protection</td>
+</tr>
+<tr>
+<td>8</td>
+<td><code>/deviceAppManagement/iosManagedAppProtections</code></td>
+<td>GET</td>
+<td>iOS app protection</td>
+</tr>
+<tr>
+<td>9</td>
+<td><code>/deviceAppManagement/windowsManagedAppProtections</code></td>
+<td>GET</td>
+<td>Windows app protection</td>
+</tr>
+<tr>
+<td>9a</td>
+<td><code>/deviceAppManagement/managedAppPolicies</code></td>
+<td>GET</td>
+<td>Fallback for app protection</td>
+</tr>
+<tr>
+<td>10</td>
+<td><code>/deviceAppManagement/mobileAppConfigurations</code></td>
+<td>GET</td>
+<td>App configuration policies</td>
+</tr>
+<tr>
+<td>11</td>
+<td><code>/deviceManagement/deviceHealthScripts</code></td>
+<td>GET</td>
+<td>Proactive remediation scripts</td>
+</tr>
+<tr>
+<td>12</td>
+<td><code>/deviceManagement/windowsAutopilotDeploymentProfiles</code></td>
+<td>GET</td>
+<td>Autopilot deployment profiles</td>
+</tr>
+<tr>
+<td>13</td>
+<td><code>/deviceManagement/deviceEnrollmentConfigurations</code></td>
+<td>GET</td>
+<td>Enrollment Status Page (ESP) profiles</td>
+</tr>
+<tr>
+<td>14</td>
+<td><code>/deviceManagement/virtualEndpoint/provisioningPolicies</code></td>
+<td>GET</td>
+<td>Cloud PC provisioning policies</td>
+</tr>
+<tr>
+<td>15</td>
+<td><code>/deviceManagement/virtualEndpoint/userSettings</code></td>
+<td>GET</td>
+<td>Cloud PC user settings</td>
+</tr>
+<tr>
+<td>16</td>
+<td><code>/deviceManagement/intents</code></td>
+<td>GET</td>
+<td>Endpoint security intents</td>
+</tr>
+</tbody></table>
+<h3>Supporting Endpoints (called as needed)</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Graph API Endpoint</th>
+<th>HTTP</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>17</td>
+<td><code>/directoryObjects/getByIds</code></td>
+<td><strong>POST</strong></td>
+<td>Batch resolve group IDs → display names (up to 1000 per request)</td>
+</tr>
+<tr>
+<td>18</td>
+<td><code>{any-policy-endpoint}/assignments</code></td>
+<td>GET</td>
+<td>Fallback assignment fetch when <code>$expand=assignments</code> fails</td>
+</tr>
+</tbody></table>
+<p><strong>Files</strong>: <code>src/services/graph.ts</code>, <code>src/hooks/useIntuneData.ts</code></p>
+<hr>
+<h2>Device Configs</h2>
+<table>
+<thead>
+<tr>
+<th>Graph API Endpoint</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/deviceManagement/deviceConfigurations</code></td>
+<td>Classic device configuration profiles</td>
+</tr>
+<tr>
+<td><code>/deviceManagement/configurationPolicies</code></td>
+<td>Settings Catalog policies</td>
+</tr>
+<tr>
+<td><code>/deviceManagement/groupPolicyConfigurations</code></td>
+<td>Administrative Templates</td>
+</tr>
+</tbody></table>
+<p><strong>Detail expansion</strong> (when clicking a policy):</p>
+<table>
+<thead>
+<tr>
+<th>Graph API Endpoint</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/deviceManagement/configurationPolicies/{id}/settings</code></td>
+<td>Settings Catalog detailed settings</td>
+</tr>
+<tr>
+<td><code>/deviceManagement/groupPolicyConfigurations/{id}/definitionValues?$expand=definition</code></td>
+<td>Admin Template definitions</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Compliance</h2>
+<table>
+<thead>
+<tr>
+<th>Graph API Endpoint</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/deviceManagement/deviceCompliancePolicies</code></td>
+<td>All device compliance policies with assignments</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Endpoint Security</h2>
+<table>
+<thead>
+<tr>
+<th>Graph API Endpoint</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/deviceManagement/intents</code></td>
+<td>Security intents (Antivirus, Disk Encryption, Firewall, EDR, ASR, EPM)</td>
+</tr>
+<tr>
+<td><code>/deviceManagement/configurationPolicies</code></td>
+<td>Settings Catalog policies filtered by <code>templateFamily</code> for security categories</td>
+</tr>
+</tbody></table>
+<p>Policies are categorized into sub-tabs (Antivirus, Disk Encryption, Firewall, etc.) based on their <code>templateFamily</code> property.</p>
+<hr>
+<h2>Apps</h2>
+<table>
+<thead>
+<tr>
+<th>Graph API Endpoint</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/deviceAppManagement/mobileApps</code></td>
+<td>All assigned mobile applications</td>
+</tr>
+<tr>
+<td><code>/deviceAppManagement/mobileApps(&#39;{id}&#39;)/assignments</code></td>
+<td>Per-app assignment details</td>
+</tr>
+<tr>
+<td><code>/deviceAppManagement/androidManagedAppProtections</code></td>
+<td>Android app protection policies</td>
+</tr>
+<tr>
+<td><code>/deviceAppManagement/iosManagedAppProtections</code></td>
+<td>iOS app protection policies</td>
+</tr>
+<tr>
+<td><code>/deviceAppManagement/windowsManagedAppProtections</code></td>
+<td>Windows app protection policies</td>
+</tr>
+<tr>
+<td><code>/deviceAppManagement/mobileAppConfigurations</code></td>
+<td>App configuration policies</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>Note</strong>: Mobile apps use a filter of <code>isAssigned eq true</code> and fetch assignments in batches of 10 due to Graph API expand limitations.</p>
+</blockquote>
+<hr>
+<h2>Scripts</h2>
+<table>
+<thead>
+<tr>
+<th>Graph API Endpoint</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/deviceManagement/deviceManagementScripts</code></td>
+<td>PowerShell device management scripts</td>
+</tr>
+<tr>
+<td><code>/deviceManagement/deviceHealthScripts</code></td>
+<td>Proactive remediation (health) scripts</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Enrollment</h2>
+<table>
+<thead>
+<tr>
+<th>Graph API Endpoint</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/deviceManagement/windowsAutopilotDeploymentProfiles</code></td>
+<td>Windows Autopilot deployment profiles</td>
+</tr>
+<tr>
+<td><code>/deviceManagement/deviceEnrollmentConfigurations</code></td>
+<td>Enrollment Status Page (ESP) — filtered by <code>@odata.type</code> containing <code>EnrollmentCompletionPageConfiguration</code></td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Windows 365</h2>
+<table>
+<thead>
+<tr>
+<th>Graph API Endpoint</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/deviceManagement/virtualEndpoint/provisioningPolicies</code></td>
+<td>Cloud PC provisioning policies</td>
+</tr>
+<tr>
+<td><code>/deviceManagement/virtualEndpoint/userSettings</code></td>
+<td>Cloud PC user settings</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Dashboard (Spotlight Search)</h2>
+<p>The dashboard includes a global search bar that queries users, devices, and groups in parallel.</p>
+<table>
+<thead>
+<tr>
+<th>Graph API Endpoint</th>
+<th>HTTP</th>
+<th>Filter / Query</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/users</code></td>
+<td>GET</td>
+<td><code>startsWith(displayName,&#39;{q}&#39;) or startsWith(mail,&#39;{q}&#39;) or startsWith(userPrincipalName,&#39;{q}&#39;)</code> / <code>$top=10</code></td>
+<td>Search users</td>
+</tr>
+<tr>
+<td><code>/deviceManagement/managedDevices</code></td>
+<td>GET</td>
+<td>Client-side match on <code>deviceName</code> or <code>serialNumber</code> / <code>$top=200</code></td>
+<td>Search devices</td>
+</tr>
+<tr>
+<td><code>/groups</code></td>
+<td>GET</td>
+<td><code>startsWith(displayName,&#39;{q}&#39;)</code> / <code>$top=10</code></td>
+<td>Search groups</td>
+</tr>
+</tbody></table>
+<p><strong>File</strong>: <code>src/services/graph.ts</code> → <code>searchAll()</code> (calls <code>searchUsers()</code> + <code>searchDevices()</code> in parallel)</p>
+<hr>
+<h2>Compare</h2>
+<p>Side-by-side assignment comparison between two users, devices, or groups.</p>
+<p><strong>Uses all 14+ policy endpoints</strong> (same as Overview) to load assignments, plus:</p>
+<table>
+<thead>
+<tr>
+<th>Graph API Endpoint</th>
+<th>HTTP</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/users/{userId}</code></td>
+<td>GET</td>
+<td>Resolve user details for comparison subjects</td>
+</tr>
+<tr>
+<td><code>/users/{userId}/transitiveMemberOf</code></td>
+<td>GET</td>
+<td>Get all groups (including nested) for a user</td>
+</tr>
+<tr>
+<td><code>/deviceManagement/managedDevices/{deviceId}</code></td>
+<td>GET</td>
+<td>Resolve device details</td>
+</tr>
+<tr>
+<td><code>/devices(deviceId=&#39;{azureAdDeviceId}&#39;)/transitiveMemberOf</code></td>
+<td>GET</td>
+<td>Get all groups for a device (via Azure AD device ID)</td>
+</tr>
+<tr>
+<td><code>/groups/{groupId}</code></td>
+<td>GET</td>
+<td>Resolve group details</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Explorer</h2>
+<p>Interactive graph visualization of assignment relationships (user/device → groups → policies).</p>
+<p><strong>Uses all 14+ policy endpoints</strong> (same as Overview), plus:</p>
+<table>
+<thead>
+<tr>
+<th>Graph API Endpoint</th>
+<th>HTTP</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/users/{userId}/transitiveMemberOf</code></td>
+<td>GET</td>
+<td>Map user → group memberships (transitive)</td>
+</tr>
+<tr>
+<td><code>/deviceManagement/managedDevices/{deviceId}</code></td>
+<td>GET</td>
+<td>Lookup managed device → Azure AD device ID</td>
+</tr>
+<tr>
+<td><code>/devices(deviceId=&#39;{azureAdDeviceId}&#39;)/transitiveMemberOf</code></td>
+<td>GET</td>
+<td>Map device → group memberships (transitive)</td>
+</tr>
+<tr>
+<td><code>/users</code>, <code>/deviceManagement/managedDevices</code>, <code>/groups</code></td>
+<td>GET</td>
+<td>Unified search for entity selection</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Search</h2>
+<p>Unified search across all entity types.</p>
+<table>
+<thead>
+<tr>
+<th>Graph API Endpoint</th>
+<th>HTTP</th>
+<th>Filter</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/users</code></td>
+<td>GET</td>
+<td><code>startsWith</code> on displayName, mail, UPN</td>
+<td>Find users</td>
+</tr>
+<tr>
+<td><code>/deviceManagement/managedDevices</code></td>
+<td>GET</td>
+<td>Client-side string match</td>
+<td>Find devices</td>
+</tr>
+<tr>
+<td><code>/groups</code></td>
+<td>GET</td>
+<td><code>startsWith(displayName,&#39;{q}&#39;)</code></td>
+<td>Find groups</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>User &amp; Device Detail Pages (<code>/assignments/[type]/[id]</code>)</h2>
+<p>When navigating to a specific user, device, or group&#39;s assignment detail page:</p>
+<table>
+<thead>
+<tr>
+<th>Graph API Endpoint</th>
+<th>HTTP</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/users/{userId}</code></td>
+<td>GET</td>
+<td>User details (name, email, job title, department)</td>
+</tr>
+<tr>
+<td><code>/users/{userId}/photo/$value</code></td>
+<td>GET</td>
+<td>User profile photo (<strong>uses v1.0</strong>, direct REST fetch)</td>
+</tr>
+<tr>
+<td><code>/users/{userId}/transitiveMemberOf</code></td>
+<td>GET</td>
+<td>All group memberships for assignment matching</td>
+</tr>
+<tr>
+<td><code>/deviceManagement/managedDevices/{deviceId}</code></td>
+<td>GET</td>
+<td>Device details</td>
+</tr>
+<tr>
+<td><code>/devices(deviceId=&#39;{azureAdDeviceId}&#39;)/transitiveMemberOf</code></td>
+<td>GET</td>
+<td>Device group memberships</td>
+</tr>
+<tr>
+<td><code>/groups/{groupId}</code></td>
+<td>GET</td>
+<td>Group display name</td>
+</tr>
+<tr>
+<td>All policy endpoints</td>
+<td>GET</td>
+<td>Load all policies to match assignments</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Policy Configuration Details</h2>
+<p>When expanding/clicking a policy to see its settings:</p>
+<table>
+<thead>
+<tr>
+<th>Policy Type</th>
+<th>Detail Endpoint</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Settings Catalog</td>
+<td><code>/deviceManagement/configurationPolicies/{id}/settings</code></td>
+</tr>
+<tr>
+<td>Admin Templates</td>
+<td><code>/deviceManagement/groupPolicyConfigurations/{id}/definitionValues?$expand=definition</code></td>
+</tr>
+<tr>
+<td>Device Configuration</td>
+<td><code>/deviceManagement/deviceConfigurations/{id}</code></td>
+</tr>
+<tr>
+<td>Compliance</td>
+<td><code>/deviceManagement/deviceCompliancePolicies/{id}</code></td>
+</tr>
+<tr>
+<td>Mobile Apps</td>
+<td><code>/deviceAppManagement/mobileApps/{id}</code></td>
+</tr>
+<tr>
+<td>Scripts</td>
+<td><code>/deviceManagement/deviceManagementScripts/{id}</code></td>
+</tr>
+<tr>
+<td>Health Scripts</td>
+<td><code>/deviceManagement/deviceHealthScripts/{id}</code></td>
+</tr>
+<tr>
+<td>App Config</td>
+<td><code>/deviceAppManagement/mobileAppConfigurations/{id}</code></td>
+</tr>
+<tr>
+<td>App Protection</td>
+<td><code>/deviceAppManagement/{platform}ManagedAppProtections/{id}</code></td>
+</tr>
+<tr>
+<td>Autopilot</td>
+<td><code>/deviceManagement/windowsAutopilotDeploymentProfiles/{id}</code></td>
+</tr>
+<tr>
+<td>ESP</td>
+<td><code>/deviceManagement/deviceEnrollmentConfigurations/{id}</code></td>
+</tr>
+<tr>
+<td>Cloud PC Provisioning</td>
+<td><code>/deviceManagement/virtualEndpoint/provisioningPolicies/{id}</code></td>
+</tr>
+<tr>
+<td>Cloud PC User Settings</td>
+<td><code>/deviceManagement/virtualEndpoint/userSettings/{id}</code></td>
+</tr>
+</tbody></table>
+<p><strong>File</strong>: <code>src/services/policy-config.ts</code> → <code>fetchPolicyConfiguration()</code></p>
+<hr>
+<h2>Resilience &amp; Performance</h2>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Retry logic</strong></td>
+<td>Exponential backoff with jitter on 429 (throttled) and 5xx errors, max 3 retries</td>
+</tr>
+<tr>
+<td><strong>Pagination</strong></td>
+<td>Automatic <code>@odata.nextLink</code> following for all list endpoints</td>
+</tr>
+<tr>
+<td><strong>Batch operations</strong></td>
+<td>Group name resolution batches up to 1000 IDs per POST request</td>
+</tr>
+<tr>
+<td><strong>App assignment batching</strong></td>
+<td>Mobile app assignments fetched 10 at a time</td>
+</tr>
+<tr>
+<td><strong>Client-side caching</strong></td>
+<td>TanStack Query (<code>@tanstack/react-query</code>) for data caching and deduplication</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Required API Permissions (Delegated)</h2>
+<table>
+<thead>
+<tr>
+<th>Permission</th>
+<th>Used For</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>User.Read</code></td>
+<td>Sign-in and read own profile</td>
+</tr>
+<tr>
+<td><code>User.Read.All</code></td>
+<td>Search and read all user profiles</td>
+</tr>
+<tr>
+<td><code>GroupMember.Read.All</code></td>
+<td>Read group memberships and search groups</td>
+</tr>
+<tr>
+<td><code>DeviceManagementManagedDevices.Read.All</code></td>
+<td>Read managed device data</td>
+</tr>
+<tr>
+<td><code>DeviceManagementApps.Read.All</code></td>
+<td>Read mobile apps, app protection, app configuration</td>
+</tr>
+<tr>
+<td><code>DeviceManagementConfiguration.Read.All</code></td>
+<td>Read device configs, compliance, settings catalog, admin templates</td>
+</tr>
+<tr>
+<td><code>DeviceManagementServiceConfig.Read.All</code></td>
+<td>Read enrollment configs, Autopilot profiles, scripts</td>
+</tr>
+<tr>
+<td><code>CloudPC.Read.All</code></td>
+<td>Read Windows 365 Cloud PC policies and settings</td>
+</tr>
+</tbody></table>
+</body>
+</html>

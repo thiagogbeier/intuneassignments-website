@@ -97,12 +97,20 @@ export function generateFeaturesHtmlReport(data: FeaturesData): string {
   ]);
 
   // Diagnostic settings table
-  const diagRows = data.diagnosticSettings.map((d) => [
-    d.name ?? d.id,
-    d.storageAccountId ?? "—",
-    d.eventHubAuthorizationRuleId ?? "—",
-    d.workspaceId ?? "—",
-  ]);
+  const diagRows = data.diagnosticSettings.map((d) => {
+    const extractName = (rid?: string | null) => {
+      if (!rid) return "—";
+      const parts = rid.split("/");
+      return parts[parts.length - 1] || rid;
+    };
+    return [
+      d.name ?? d.id,
+      extractName(d.storageAccountId),
+      extractName(d.eventHubAuthorizationRuleId),
+      extractName(d.workspaceId),
+      extractName(d.marketplacePartnerId),
+    ];
+  });
 
   // Tunnel Gateway tables
   const tunnelSiteRows = data.tunnelGateway.sites.map((s) => [
@@ -211,7 +219,7 @@ ${data.cloudPKICAs.length > 0 ? `<h3>Cloud PKI Certificate Authorities (${data.c
 ${tableHtml(["CA Name", "Type", "Common Name", "Status", "Issuance", "Expiration"], caRows)}` : ""}
 
 ${data.diagnosticSettings.length > 0 ? `<h3>Diagnostic Settings (${data.diagnosticSettings.length})</h3>
-${tableHtml(["Name", "Storage Account", "Event Hub", "Log Analytics Workspace"], diagRows)}` : ""}
+${tableHtml(["Name", "Storage Account", "Event Hub", "Log Analytics Workspace", "Partner Solution"], diagRows)}` : ""}
 
 ${data.tunnelGateway.sites.length > 0 ? `<h3>MS Tunnel Gateway</h3>
 <h4>Sites (${data.tunnelGateway.sites.length})</h4>

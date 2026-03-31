@@ -13,6 +13,13 @@ interface FeatureDetailSectionProps {
   data: FeaturesData;
 }
 
+/** Extract the last segment (resource name) from an Azure resource ID, or return "—". */
+function extractResourceName(resourceId?: string | null): string {
+  if (!resourceId) return "—";
+  const parts = resourceId.split("/");
+  return parts[parts.length - 1] || resourceId;
+}
+
 function SimpleTable({
   headers,
   rows,
@@ -203,12 +210,13 @@ export function FeatureDetailSection({ data }: FeatureDetailSectionProps) {
             </AccordionTrigger>
             <AccordionContent>
               <SimpleTable
-                headers={["Name", "Storage Account", "Event Hub", "Log Analytics Workspace"]}
+                headers={["Name", "Storage Account", "Event Hub", "Log Analytics Workspace", "Partner Solution"]}
                 rows={data.diagnosticSettings.map((d) => [
                   d.name ?? d.id,
-                  d.storageAccountId ?? "—",
-                  d.eventHubAuthorizationRuleId ?? "—",
-                  d.workspaceId ?? "—",
+                  extractResourceName(d.storageAccountId),
+                  extractResourceName(d.eventHubAuthorizationRuleId),
+                  extractResourceName(d.workspaceId),
+                  extractResourceName(d.marketplacePartnerId),
                 ])}
               />
             </AccordionContent>

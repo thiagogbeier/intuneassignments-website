@@ -68,6 +68,7 @@ export interface DiagnosticSetting {
   eventHubAuthorizationRuleId?: string;
   workspaceId?: string;
   logAnalyticsDestinationType?: string;
+  marketplacePartnerId?: string;
 }
 
 export interface RoleAssignment {

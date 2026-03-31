@@ -366,10 +366,17 @@ export async function fetchDiagnosticSettings(
     return [];
   }
 
-  // Diagnostic settings for Intune are Azure Monitor resources accessed via ARM API
+  // Intune diagnostic settings use the microsoft.insights sub-provider on the
+  // microsoft.intune tenant-level resource.  Try several known endpoint shapes.
   const endpoints = [
-    "https://management.azure.com/providers/Microsoft.Intune/diagnosticSettings?api-version=2021-05-01-preview",
-    "https://management.azure.com/providers/Microsoft.Intune/diagnosticSettings?api-version=2017-04-01",
+    // microsoft.insights sub-provider (standard Azure Monitor pattern)
+    "https://management.azure.com/providers/microsoft.intune/providers/microsoft.insights/diagnosticSettings?api-version=2021-05-01-preview",
+    "https://management.azure.com/providers/microsoft.intune/providers/microsoft.insights/diagnosticSettings?api-version=2017-05-01-preview",
+    // Direct provider path (older API versions)
+    "https://management.azure.com/providers/microsoft.intune/diagnosticSettings?api-version=2017-04-01",
+    "https://management.azure.com/providers/microsoft.intune/diagnosticSettings?api-version=2021-05-01-preview",
+    // AAD/Entra ID diagnostic settings (sometimes used for Intune logs)
+    "https://management.azure.com/providers/microsoft.aadiam/diagnosticSettings?api-version=2017-04-01-preview",
   ];
 
   for (const url of endpoints) {
@@ -379,19 +386,19 @@ export async function fetchDiagnosticSettings(
       });
 
       if (!res.ok) {
-        if (res.status === 404) continue; // try next endpoint
+        console.log(`[features] Diagnostic settings endpoint ${res.status}: ${url.split("?")[0]}`);
+        if (res.status === 404) continue;
         if (res.status === 403) {
           console.warn("[features] 403 on ARM diagnostic settings — permission denied");
           return [];
         }
-        console.warn(`[features] ARM diagnostic settings returned ${res.status}`);
         continue;
       }
 
       const data = await res.json();
-      const settings = (data.value ?? []) as any[];
+      const settings = (data.value ?? (Array.isArray(data) ? data : [])) as any[];
 
-      console.log(`[features] Diagnostic settings: ${settings.length} found via ARM`);
+      console.log(`[features] Diagnostic settings: ${settings.length} found via ${url.split("?")[0]}`);
 
       return settings.map((s: any) => ({
         id: s.id ?? "",
@@ -410,6 +417,7 @@ export async function fetchDiagnosticSettings(
     }
   }
 
+  console.warn("[features] All diagnostic settings endpoints returned no data");
   return [];
 }
 

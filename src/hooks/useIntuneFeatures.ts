@@ -33,10 +33,26 @@ export function useIntuneFeatures() {
     return response.accessToken;
   }, [instance, accounts]);
 
+  const getArmToken = useCallback(async (): Promise<string | null> => {
+    const account = accounts[0];
+    if (!account) return null;
+    try {
+      const response = await instance.acquireTokenSilent({
+        scopes: ["https://management.azure.com/user_impersonation"],
+        account,
+      });
+      return response.accessToken;
+    } catch {
+      console.warn("[features] Could not acquire ARM token — diagnostic settings will be skipped");
+      return null;
+    }
+  }, [instance, accounts]);
+
   return useQuery<FeaturesData>({
     queryKey: ["intuneFeatures"],
     queryFn: async (): Promise<FeaturesData> => {
       const token = await getAccessToken();
+      const armToken = await getArmToken();
 
       // Parallel fetch all feature data
       const [
@@ -59,7 +75,7 @@ export function useIntuneFeatures() {
         fetchDiskEncryptionPolicies(token),
         fetchWindowsLapsPolicies(token),
         fetchCloudPKICAs(token),
-        fetchDiagnosticSettings(token),
+        fetchDiagnosticSettings(armToken),
         fetchTunnelGateway(token),
         fetchConnectors(token),
         fetchRoleAssignments(token),

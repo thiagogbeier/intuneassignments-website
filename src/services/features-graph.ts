@@ -359,12 +359,58 @@ export async function fetchCloudPKICAs(
 }
 
 export async function fetchDiagnosticSettings(
-  token: string,
+  armToken: string | null,
 ): Promise<DiagnosticSetting[]> {
-  return fetchBeta<DiagnosticSetting>(
-    token,
-    "/deviceManagement/monitoring/alertRules",
-  );
+  if (!armToken) {
+    console.warn("[features] No ARM token — skipping diagnostic settings");
+    return [];
+  }
+
+  // Diagnostic settings for Intune are Azure Monitor resources accessed via ARM API
+  const endpoints = [
+    "https://management.azure.com/providers/Microsoft.Intune/diagnosticSettings?api-version=2021-05-01-preview",
+    "https://management.azure.com/providers/Microsoft.Intune/diagnosticSettings?api-version=2017-04-01",
+  ];
+
+  for (const url of endpoints) {
+    try {
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${armToken}` },
+      });
+
+      if (!res.ok) {
+        if (res.status === 404) continue; // try next endpoint
+        if (res.status === 403) {
+          console.warn("[features] 403 on ARM diagnostic settings — permission denied");
+          return [];
+        }
+        console.warn(`[features] ARM diagnostic settings returned ${res.status}`);
+        continue;
+      }
+
+      const data = await res.json();
+      const settings = (data.value ?? []) as any[];
+
+      console.log(`[features] Diagnostic settings: ${settings.length} found via ARM`);
+
+      return settings.map((s: any) => ({
+        id: s.id ?? "",
+        name: s.name ?? s.id ?? "—",
+        storageAccountId: s.properties?.storageAccountId ?? null,
+        eventHubAuthorizationRuleId:
+          s.properties?.eventHubAuthorizationRuleId ?? null,
+        workspaceId: s.properties?.workspaceId ?? null,
+        logAnalyticsDestinationType:
+          s.properties?.logAnalyticsDestinationType ?? null,
+        marketplacePartnerId:
+          s.properties?.marketplacePartnerId ?? null,
+      }));
+    } catch (err: any) {
+      console.warn("[features] Failed to fetch ARM diagnostic settings", err?.message);
+    }
+  }
+
+  return [];
 }
 
 // ─── MS Tunnel Gateway ──────────────────────────────────────────────────────

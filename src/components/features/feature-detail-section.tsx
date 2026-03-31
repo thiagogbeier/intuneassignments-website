@@ -264,6 +264,34 @@ export function FeatureDetailSection({ data }: FeatureDetailSectionProps) {
             </AccordionContent>
           </AccordionItem>
 
+          {/* Connectors */}
+          <AccordionItem value="connectors" className="border rounded-lg px-4">
+            <AccordionTrigger className="text-sm font-medium">
+              Connectors ({data.connectors.domainJoinConnectors.length + data.connectors.ndesConnectors.length})
+            </AccordionTrigger>
+            <AccordionContent>
+              <SimpleTable
+                headers={["Name", "Type", "Created Date"]}
+                rows={[
+                  ...data.connectors.domainJoinConnectors.map((c) => [
+                    c.displayName ?? "—",
+                    "Domain Join Connector",
+                    c.lastConnectionDateTime
+                      ? new Date(c.lastConnectionDateTime).toLocaleDateString()
+                      : "—",
+                  ]),
+                  ...data.connectors.ndesConnectors.map((c) => [
+                    c.displayName ?? "—",
+                    "NDES Connector",
+                    c.lastConnectionDateTime
+                      ? new Date(c.lastConnectionDateTime).toLocaleDateString()
+                      : "—",
+                  ]),
+                ]}
+              />
+            </AccordionContent>
+          </AccordionItem>
+
           {/* Intune Admins */}
           <AccordionItem value="intune-admins" className="border rounded-lg px-4">
             <AccordionTrigger className="text-sm font-medium">

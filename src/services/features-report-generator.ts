@@ -125,6 +125,24 @@ export function generateFeaturesHtmlReport(data: FeaturesData): string {
     h.lastCheckin,
   ]);
 
+  // Connectors table (unified)
+  const connectorRows = [
+    ...data.connectors.domainJoinConnectors.map((c) => [
+      c.displayName ?? "—",
+      "Domain Join Connector",
+      c.lastConnectionDateTime
+        ? new Date(c.lastConnectionDateTime).toLocaleDateString()
+        : "—",
+    ]),
+    ...data.connectors.ndesConnectors.map((c) => [
+      c.displayName ?? "—",
+      "NDES Connector",
+      c.lastConnectionDateTime
+        ? new Date(c.lastConnectionDateTime).toLocaleDateString()
+        : "—",
+    ]),
+  ];
+
   // Intune admins table
   const adminRows = data.intuneAdmins.map((a) => [
     a.displayName,
@@ -202,6 +220,9 @@ ${tableHtml(["Site", "Upgrade Type", "Available Upgrade", "Server Configuration"
 ${tableHtml(["Server", "Site", "Server Configuration", "Last Check-in"], tunnelServerRows)}
 <h4>Health Status</h4>
 ${tableHtml(["Status", "Name", "Site", "Last Check-in"], tunnelHealthRows)}` : ""}
+
+${connectorRows.length > 0 ? `<h3>Connectors (${connectorRows.length})</h3>
+${tableHtml(["Name", "Type", "Created Date"], connectorRows)}` : ""}
 
 ${data.intuneAdmins.length > 0 ? `<h3>Intune Admins (${data.intuneAdmins.length})</h3>
 ${tableHtml(["Display Name", "User Principal Name", "Role", "Assignment Type", "Scope"], adminRows)}` : ""}

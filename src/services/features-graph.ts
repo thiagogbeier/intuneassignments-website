@@ -16,6 +16,9 @@ import type {
   TunnelServer,
   TunnelConfiguration,
   TunnelHealthStatus,
+  ConnectorsData,
+  NdesConnector,
+  DomainJoinConnector,
 } from "~/types/features";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -363,6 +366,26 @@ export async function fetchTunnelGateway(
   );
 
   return { sites, servers: allServers, configurations, healthStatuses };
+}
+
+// ─── Connectors ──────────────────────────────────────────────────────────────
+
+export async function fetchConnectors(
+  token: string,
+): Promise<ConnectorsData> {
+  const [ndesConnectors, domainJoinConnectors] = await Promise.all([
+    fetchBeta<NdesConnector>(token, "/deviceManagement/ndesConnectors"),
+    fetchBeta<DomainJoinConnector>(
+      token,
+      "/deviceManagement/domainJoinConnectors",
+    ),
+  ]);
+
+  console.log(
+    `[features] Connectors: ${ndesConnectors.length} NDES, ${domainJoinConnectors.length} Domain Join`,
+  );
+
+  return { ndesConnectors, domainJoinConnectors };
 }
 
 export async function fetchRoleAssignments(

@@ -14,6 +14,7 @@ import {
   fetchCloudPKICAs,
   fetchDiagnosticSettings,
   fetchTunnelGateway,
+  fetchConnectors,
   fetchRoleAssignments,
   resolveIntuneAdmins,
 } from "~/services/features-graph";
@@ -46,6 +47,7 @@ export function useIntuneFeatures() {
         cloudPKICAs,
         diagnosticSettings,
         tunnelGateway,
+        connectors,
         roleAssignments,
       ] = await Promise.all([
         fetchApprovalPolicies(token),
@@ -56,6 +58,7 @@ export function useIntuneFeatures() {
         fetchCloudPKICAs(token),
         fetchDiagnosticSettings(token),
         fetchTunnelGateway(token),
+        fetchConnectors(token),
         fetchRoleAssignments(token),
       ]);
 
@@ -143,6 +146,20 @@ export function useIntuneFeatures() {
               ? `${tunnelGateway.sites.length} site(s), ${tunnelGateway.servers.length} server(s)`
               : "No Tunnel Gateway configured",
         },
+        {
+          id: "connectors",
+          name: "Connectors",
+          status:
+            connectors.ndesConnectors.length > 0 ||
+            connectors.domainJoinConnectors.length > 0
+              ? "detected"
+              : "not_detected",
+          details:
+            connectors.ndesConnectors.length > 0 ||
+            connectors.domainJoinConnectors.length > 0
+              ? `${connectors.domainJoinConnectors.length} Domain Join, ${connectors.ndesConnectors.length} NDES`
+              : "No connectors found",
+        },
       ];
 
       const detected = features.filter((f) => f.status === "detected").length;
@@ -161,6 +178,7 @@ export function useIntuneFeatures() {
         cloudPKICAs,
         diagnosticSettings,
         tunnelGateway,
+        connectors,
         intuneAdmins,
       };
     },

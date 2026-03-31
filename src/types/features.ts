@@ -132,6 +132,28 @@ export interface TunnelGatewayData {
   healthStatuses: TunnelHealthStatus[];
 }
 
+// ─── Connectors ──────────────────────────────────────────────────────────────
+
+export interface NdesConnector {
+  id: string;
+  displayName?: string;
+  state?: string;
+  lastConnectionDateTime?: string;
+}
+
+export interface DomainJoinConnector {
+  id: string;
+  displayName?: string;
+  lastConnectionDateTime?: string;
+  state?: string;
+  location?: string;
+}
+
+export interface ConnectorsData {
+  ndesConnectors: NdesConnector[];
+  domainJoinConnectors: DomainJoinConnector[];
+}
+
 export type FeatureStatus = "detected" | "not_detected" | "error";
 
 export interface FeatureDetectionResult {
@@ -154,4 +176,5 @@ export interface FeaturesData {
   diagnosticSettings: DiagnosticSetting[];
   intuneAdmins: IntuneAdmin[];
   tunnelGateway: TunnelGatewayData;
+  connectors: ConnectorsData;
 }

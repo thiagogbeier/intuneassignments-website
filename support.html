@@ -1,0 +1,1158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Intune Assignments Website — MCP Indexing Support</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      body {
+        font-family:
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          Arial,
+          sans-serif;
+        line-height: 1.5;
+        margin: 0;
+        padding: 24px;
+        max-width: 1100px;
+      }
+      header {
+        margin-bottom: 20px;
+      }
+      h1,
+      h2,
+      h3 {
+        line-height: 1.2;
+      }
+      nav ul {
+        padding-left: 18px;
+      }
+      code,
+      pre {
+        font-family:
+          ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono",
+          monospace;
+        font-size: 0.95em;
+      }
+      pre {
+        overflow: auto;
+        padding: 12px;
+        border: 1px solid rgba(127, 127, 127, 0.35);
+        border-radius: 8px;
+      }
+      .note {
+        padding: 12px;
+        border-left: 4px solid rgba(127, 127, 127, 0.6);
+        background: rgba(127, 127, 127, 0.08);
+        border-radius: 8px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      th,
+      td {
+        border: 1px solid rgba(127, 127, 127, 0.35);
+        text-align: left;
+        padding: 8px;
+        vertical-align: top;
+      }
+      footer {
+        margin-top: 28px;
+        padding-top: 14px;
+        border-top: 1px solid rgba(127, 127, 127, 0.35);
+        opacity: 0.9;
+      }
+    </style>
+
+    <!-- Mermaid (diagram rendering). Using the non-module build to work reliably under file:// -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"
+      defer
+    ></script>
+    <script defer>
+      window.addEventListener("DOMContentLoaded", async () => {
+        const sourceEl = document.getElementById("mermaid-source");
+        const diagramEl = document.getElementById("mermaid-diagram");
+        const statusEl = document.getElementById("mermaid-status");
+        if (!sourceEl || !diagramEl) return;
+
+        diagramEl.textContent = sourceEl.textContent || "";
+
+        const mermaid = window.mermaid;
+        if (!mermaid) {
+          if (statusEl) {
+            statusEl.style.display = "block";
+            statusEl.textContent =
+              "Mermaid failed to load. If you opened this file via file:// in a locked-down sandbox, the browser may be blocking external scripts. The Mermaid source is still available under 'Show Mermaid source'.";
+          }
+          return;
+        }
+
+        try {
+          mermaid.initialize({ startOnLoad: false, theme: "dark" });
+          await mermaid.run({ nodes: [diagramEl] });
+        } catch (err) {
+          if (statusEl) {
+            statusEl.style.display = "block";
+            statusEl.textContent =
+              "Mermaid render failed: " +
+              (err && err.message ? err.message : String(err));
+          }
+        }
+      });
+    </script>
+  </head>
+  <body>
+    <header>
+      <h1>Intune Assignments Website — MCP Indexing Support</h1>
+      <p>
+        This document captures the complete setup, management, and
+        troubleshooting steps used to index and query
+        <strong>intuneassignments-website</strong> with
+        <strong>codebase-memory-mcp</strong> running in Docker on Windows.
+      </p>
+      <p><strong>Date:</strong> 2026-04-15</p>
+    </header>
+
+    <nav>
+      <h2>Table of contents</h2>
+      <ul>
+        <li><a href="#overview">1) Overview</a></li>
+        <li><a href="#folders">2) Folder structure</a></li>
+        <li><a href="#prereqs">3) Prerequisites</a></li>
+        <li><a href="#setup">4) Setup (step-by-step)</a></li>
+        <li><a href="#docker">5) Docker image + container management</a></li>
+        <li><a href="#indexing">6) Indexing (the important part)</a></li>
+        <li><a href="#architecture">7) Architecture and how it works</a></li>
+        <li><a href="#vscode">8) VS Code MCP configuration</a></li>
+        <li><a href="#ops">9) Day-to-day operations</a></li>
+        <li><a href="#troubleshooting">10) Troubleshooting checklist</a></li>
+        <li><a href="#reference">11) Command reference</a></li>
+      </ul>
+    </nav>
+
+    <section id="overview">
+      <h2>1) Overview</h2>
+      <div class="grid">
+        <div class="note">
+          <p>
+            <strong>Key outcomes from the session:</strong>
+          </p>
+          <ul>
+            <li>
+              Indexing succeeded when we mounted the
+              <em>real repo folder</em> directly into the container (not via a
+              Windows symlink).
+            </li>
+            <li>
+              The indexed project name we ended up with was
+              <code>repo</code> (because we mounted the repo at
+              <code>/repo</code>).
+            </li>
+            <li>
+              The persistent cache volume <code>cbm-data</code> was used to keep
+              the graph across runs.
+            </li>
+            <li>
+              We discovered the Docker bind-mount + Windows symlink pitfall:
+              Docker inside Linux containers may not follow Windows symlink
+              targets.
+            </li>
+            <li>
+              VS Code user settings originally only had a
+              <code>drawio</code> MCP server; we added a
+              <code>codebase-memory</code> server entry.
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <h3>What is being indexed?</h3>
+          <p>
+            The project is a Next.js/TypeScript repo (folder:
+            <code>C:\GitHub\intuneassignments-website</code>) with a typical
+            structure:
+          </p>
+          <pre><code>C:\GitHub\intuneassignments-website\
+  src\
+  public\
+  package.json
+  next.config.js
+  tsconfig.json
+  ...</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="folders">
+      <h2>2) Folder structure</h2>
+
+      <p>
+        Initial intended folder layout (from <code>C:\GitHub\myplan.md</code>):
+      </p>
+      <pre><code>C:\GitHub\              # your real repos (already exists)
+C:\mcp-workspace\       # AI-controlled view (symlinks)
+C:\mcp-config\          # docker + config</code></pre>
+
+      <p>What we actually observed in this session:</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Path</th>
+            <th>Purpose</th>
+            <th>Status / Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>C:\GitHub\intuneassignments-website</code></td>
+            <td>Real repository directory</td>
+            <td>Used successfully for indexing via a direct bind mount</td>
+          </tr>
+          <tr>
+            <td><code>C:\mcp-workspace\intuneassignments-website</code></td>
+            <td>Symlink to the repo</td>
+            <td>
+              Symlink resolved in Windows, but did <strong>not</strong> work
+              inside Docker for indexing
+            </td>
+          </tr>
+          <tr>
+            <td><code>C:\mcp-config\Dockerfile</code></td>
+            <td>Builds the <code>mcp-memory</code> Docker image</td>
+            <td>
+              Uses <code>codebase-memory-mcp</code> v0.6.0 (linux amd64 binary)
+            </td>
+          </tr>
+          <tr>
+            <td><code>cbm-data</code> (Docker volume)</td>
+            <td>Persisted graph cache</td>
+            <td>Holds the indexed project(s) across runs</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="prereqs">
+      <h2>3) Prerequisites</h2>
+      <ul>
+        <li>Windows with Docker Desktop installed and running</li>
+        <li>PowerShell (pwsh) available</li>
+        <li>
+          Repo present at <code>C:\GitHub\intuneassignments-website</code>
+        </li>
+      </ul>
+    </section>
+
+    <section id="setup">
+      <h2>4) Setup (step-by-step)</h2>
+
+      <h3>Step 4.1 — Create base folders</h3>
+      <pre><code>mkdir C:\mcp-workspace
+mkdir C:\mcp-config</code></pre>
+
+      <h3>Step 4.2 — Create a symlink (optional)</h3>
+      <p>
+        This was the initial setup attempt. It is useful for organizing repos,
+        but read the symlink warning in the indexing section.
+      </p>
+      <pre><code>$githubfolder = "C:\GitHub\intuneassignments-website"
+$githubrepo = "intuneassignments-website"
+
+New-Item -ItemType SymbolicLink -Path C:\mcp-workspace\$githubrepo -Target $githubfolder
+
+dir C:\mcp-workspace\$githubrepo</code></pre>
+
+      <h3>Step 4.3 — Build the Docker image</h3>
+      <p>
+        The Dockerfile used in this session lives at
+        <code>C:\mcp-config\Dockerfile</code>.
+      </p>
+      <pre><code>cd C:\mcp-config
+
+docker build -t mcp-memory .</code></pre>
+
+      <h3>Step 4.3.1 — Dockerfile contents (C:\mcp-config\Dockerfile)</h3>
+      <p>This is the exact Dockerfile content used in this session.</p>
+      <pre><code># codebase-memory-mcp — pre-built binary (pure C, not Python/Node)
+# Uses stdio (stdin/stdout JSON-RPC) for MCP communication
+FROM ubuntu:24.04
+
+ARG CBM_VERSION=0.6.0
+
+# Download the pre-built binary + install git for change detection
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      curl ca-certificates git \
+    && curl -fsSL "https://github.com/DeusData/codebase-memory-mcp/releases/download/v${CBM_VERSION}/codebase-memory-mcp-linux-amd64.tar.gz" \
+      -o /tmp/cbm.tar.gz \
+    && tar xzf /tmp/cbm.tar.gz -C /tmp \
+    && mv /tmp/codebase-memory-mcp /usr/local/bin/codebase-memory-mcp \
+    && chmod +x /usr/local/bin/codebase-memory-mcp \
+    && rm -rf /tmp/* /var/lib/apt/lists/*
+
+# Non-root user for safety
+RUN useradd -m -d /home/cbm cbm \
+    && mkdir -p /home/cbm/.cache/codebase-memory-mcp \
+    && chown -R cbm:cbm /home/cbm/.cache
+USER cbm
+
+# Repos mounted here (via -v C:\mcp-workspace:/repos)
+WORKDIR /repos
+
+# Persist indexed graph data across restarts
+VOLUME ["/home/cbm/.cache/codebase-memory-mcp"]
+
+ENTRYPOINT ["codebase-memory-mcp"]</code></pre>
+
+      <h3>Step 4.4 — Create a persistent cache volume</h3>
+      <pre><code>docker volume create cbm-data</code></pre>
+
+      <h3>Step 4.5 — (Recommended) Run a one-shot index command</h3>
+      <p>
+        We ultimately indexed by mounting the real repo folder directly to
+        <code>/repo</code>.
+      </p>
+      <pre><code>docker run --rm ^
+  -v C:\GitHub\intuneassignments-website:/repo ^
+  -v cbm-data:/home/cbm/.cache/codebase-memory-mcp ^
+  mcp-memory cli index_repository '{"repo_path":"/repo","mode":"moderate"}'</code></pre>
+
+      <div class="note">
+        <p><strong>Expected result (summary):</strong></p>
+        <ul>
+          <li>Discovers ~100+ files (we saw <code>files=103</code>)</li>
+          <li>Returns JSON with <code>status</code> = <code>indexed</code></li>
+          <li>Creates/updates an indexed project named <code>repo</code></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="docker">
+      <h2>5) Docker image + container management</h2>
+
+      <h3>5.0 Create the persistent cache volume (recommended)</h3>
+      <p>
+        This volume persists the indexed graph so you don’t lose it between
+        runs.
+      </p>
+      <pre><code>docker volume create cbm-data</code></pre>
+
+      <h3>5.1 Verify the CLI works</h3>
+      <pre><code>docker run --rm -i mcp-memory --help</code></pre>
+
+      <h3>5.2 Inspect a running container</h3>
+      <p>
+        We inspected the running <code>mcp-memory</code> container and saw that
+        it did not expose ports and had a different mount than planned. These
+        were the exact commands used:
+      </p>
+      <pre><code>docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"
+
+docker port mcp-memory
+
+docker logs --tail 200 mcp-memory
+
+docker inspect mcp-memory --format "Image={{.Config.Image}} Cmd={{json .Config.Cmd}} ExposedPorts={{json .Config.ExposedPorts}} PortBindings={{json .HostConfig.PortBindings}} Binds={{json .HostConfig.Binds}}"</code></pre>
+
+      <h3>5.3 Important note about ports</h3>
+      <p>
+        <code>codebase-memory-mcp</code> is primarily an MCP server over
+        <strong>stdio</strong> (stdin/stdout JSON-RPC). It can optionally expose
+        an HTTP UI with <code>--ui=true</code>, but you still need to publish
+        ports with <code>-p</code> when using Docker.
+      </p>
+
+      <h3>5.4 Optional: enable the HTTP UI</h3>
+      <p>
+        If you want the visualization UI, you need the
+        <strong>UI build</strong> of <code>codebase-memory-mcp</code> (the plain
+        MCP server build may not start an HTTP listener).
+      </p>
+
+      <div class="note">
+        <p><strong>Important Windows/Docker detail:</strong></p>
+        <p>
+          The UI server binds to <code>127.0.0.1</code> inside the container.
+          Docker port publishing can’t reach a loopback-only listener directly,
+          so you must proxy it to <code>0.0.0.0</code> (example below).
+        </p>
+      </div>
+
+      <h4>5.4.1 Start the UI container (recommended)</h4>
+      <p>
+        This runs an Ubuntu container that downloads the UI-enabled binary
+        <code>codebase-memory-mcp-ui-linux-amd64</code>, starts the UI on
+        <code>127.0.0.1:9749</code>, and uses <code>socat</code> to expose it on
+        <code>0.0.0.0:9750</code>. Host port <code>9749</code> is mapped to
+        container port <code>9750</code>.
+      </p>
+      <pre><code>docker rm -f cbm-ui 2&gt;$null
+
+docker run -d -i -t --name cbm-ui ^
+  -p 9749:9750 ^
+  -v cbm-data:/home/cbm/.cache/codebase-memory-mcp ^
+  ubuntu:24.04 bash -lc "set -e; \
+    apt-get update &gt;/dev/null; \
+    apt-get install -y --no-install-recommends curl ca-certificates socat &gt;/dev/null; \
+    useradd -m -d /home/cbm cbm || true; \
+    chown -R cbm:cbm /home/cbm; \
+    nohup socat TCP-LISTEN:9750,fork,reuseaddr,bind=0.0.0.0 TCP:127.0.0.1:9749 &gt;/tmp/socat.log 2&gt;&amp;1 &amp; \
+    su - cbm -c 'curl -fsSL https://github.com/DeusData/codebase-memory-mcp/releases/download/v0.6.0/codebase-memory-mcp-ui-linux-amd64.tar.gz -o /tmp/cbm-ui.tar.gz &amp;&amp; tar xzf /tmp/cbm-ui.tar.gz -C /tmp &amp;&amp; /tmp/codebase-memory-mcp --ui=true --port=9749'"</code></pre>
+
+      <h4>5.4.2 Open the UI</h4>
+      <pre><code>http://localhost:9749/</code></pre>
+
+      <h4>5.4.3 Stop / remove</h4>
+      <pre><code>docker stop cbm-ui
+docker rm cbm-ui</code></pre>
+
+      <h4>5.4.4 If you see ERR_EMPTY_RESPONSE</h4>
+      <ul>
+        <li>Prefer IPv4 explicitly: <code>http://127.0.0.1:9749/</code></li>
+        <li>
+          Confirm the container is running:
+          <code>docker ps --filter name=cbm-ui</code>
+        </li>
+        <li>Check logs: <code>docker logs --tail 200 cbm-ui</code></li>
+      </ul>
+    </section>
+
+    <section id="indexing">
+      <h2>6) Indexing (the important part)</h2>
+
+      <h3>6.1 The symlink pitfall (why indexing initially failed)</h3>
+      <p>
+        We tried indexing via the symlink under <code>C:\mcp-workspace</code>,
+        mounted into Docker at <code>/repos</code>. It failed. The indexer
+        output showed:
+      </p>
+      <ul>
+        <li><code>pipeline.discover files=0</code></li>
+        <li><code>status":"error"</code></li>
+      </ul>
+
+      <p>
+        We confirmed the underlying issue by checking the mount from an Ubuntu
+        container:
+      </p>
+      <pre><code>docker run --rm -v C:\mcp-workspace:/repos ubuntu:24.04 bash -lc "ls -la /repos; echo '---'; ls -la /repos/intuneassignments-website | head"</code></pre>
+
+      <div class="note">
+        <p>Inside the Linux container, the symlink appeared as:</p>
+        <pre><code>/repos/intuneassignments-website -&gt; /mnt/host/c/GitHub/intuneassignments-website</code></pre>
+        <p>
+          That <code>/mnt/host/...</code> path does not exist inside the
+          container, so the repo looked empty.
+        </p>
+      </div>
+
+      <h3>6.2 The working solution</h3>
+      <p>
+        Mount the real Windows repo folder directly into the container and index
+        from that mount:
+      </p>
+      <pre><code>docker run --rm ^
+  -v C:\GitHub\intuneassignments-website:/repo ^
+  -v cbm-data:/home/cbm/.cache/codebase-memory-mcp ^
+  mcp-memory cli index_repository '{"repo_path":"/repo","mode":"moderate"}'</code></pre>
+
+      <p>Then verify the project is registered in the persistent cache:</p>
+      <pre><code>docker run --rm ^
+  -v cbm-data:/home/cbm/.cache/codebase-memory-mcp ^
+  mcp-memory cli list_projects '{}'</code></pre>
+
+      <div class="note">
+        <p><strong>What we saw:</strong></p>
+        <ul>
+          <li>
+            <code>projects</code> included <code>repo</code> with
+            <code>root_path</code> = <code>/repo</code>
+          </li>
+          <li>Index stats: <code>nodes=756</code>, <code>edges=1396</code></li>
+        </ul>
+      </div>
+
+      <h3>6.3 Checking index status</h3>
+      <p>
+        Once indexed, you can query status for the project name
+        (<code>repo</code>) using the CLI tool:
+      </p>
+      <pre><code>docker run --rm ^
+  -v cbm-data:/home/cbm/.cache/codebase-memory-mcp ^
+  mcp-memory cli index_status '{"project":"repo"}'</code></pre>
+
+      <p>
+        If you remount the repo at a different container path, you may end up
+        with a different project name. Keep the mount path stable to avoid
+        multiple projects for the same repo.
+      </p>
+
+      <h3>6.4 Indexing multiple repos (C:\GitHub\repos)</h3>
+      <p>
+        If you want to index multiple repositories stored under a single parent
+        folder (example: <code>C:\GitHub\repos</code>), the cleanest approach is
+        to mount that parent folder directly into the container and then index
+        each subfolder.
+      </p>
+
+      <div class="note">
+        <p><strong>Why this matters on Windows:</strong></p>
+        <ul>
+          <li>
+            Avoid using Windows symlinks inside a bind mount (like
+            <code>C:\mcp-workspace</code>) as the Linux container may not be
+            able to follow the symlink target, leading to <code>files=0</code>
+            during discovery.
+          </li>
+          <li>Prefer real directories under <code>C:\GitHub\repos</code>.</li>
+        </ul>
+      </div>
+
+      <h4>6.4.1 Recommended folder layout</h4>
+      <pre><code>C:\GitHub\repos\
+  intuneassignments-website\
+  repoA\
+  repoB\
+  ...</code></pre>
+
+      <h4>6.4.2 Index a single repo under the parent mount</h4>
+      <pre><code>docker run --rm ^
+  -v C:\GitHub\repos:/repos ^
+  -v cbm-data:/home/cbm/.cache/codebase-memory-mcp ^
+  mcp-memory cli index_repository '{"repo_path":"/repos/intuneassignments-website","mode":"moderate"}'</code></pre>
+
+      <p>
+        In this pattern, the indexed <code>project</code> name will usually be
+        the last path segment (example: <code>intuneassignments-website</code>)
+        instead of the generic <code>repo</code>.
+      </p>
+
+      <h4>6.4.3 Index all repos in a loop (PowerShell)</h4>
+      <p>
+        This indexes each immediate subdirectory under
+        <code>C:\GitHub\repos</code>.
+      </p>
+      <pre><code>$ReposRoot = "C:\GitHub\repos"
+
+Get-ChildItem -Path $ReposRoot -Directory | ForEach-Object {
+  $name = $_.Name
+  Write-Host "Indexing $name..."
+
+  docker run --rm ^
+    -v ${ReposRoot}:/repos ^
+    -v cbm-data:/home/cbm/.cache/codebase-memory-mcp ^
+    mcp-memory cli index_repository ("{`"repo_path`":`"/repos/$name`",`"mode`":`"moderate`"}")
+}</code></pre>
+
+      <h3>
+        6.5 Adding existing repos to be indexed (example: C:\GitHub\officehours)
+      </h3>
+      <p>
+        Use this when you already have a repository folder on disk and you want
+        to add it to the index.
+      </p>
+
+      <h4>Step 6.5.1 — Confirm the repo exists</h4>
+      <pre><code>dir C:\GitHub\officehours</code></pre>
+
+      <h4>Step 6.5.2 — (Recommended) Index it via a direct mount</h4>
+      <p>
+        This avoids the Windows-symlink-in-Docker pitfall. We mount the folder
+        to a stable container path (here: <code>/repo</code>) and index that.
+      </p>
+      <pre><code>docker run --rm ^
+  -v C:\GitHub\officehours:/repo ^
+  -v cbm-data:/home/cbm/.cache/codebase-memory-mcp ^
+  mcp-memory cli index_repository '{"repo_path":"/repo","mode":"moderate"}'</code></pre>
+
+      <h4>Step 6.5.3 — Verify it was added</h4>
+      <pre><code>docker run --rm ^
+  -v cbm-data:/home/cbm/.cache/codebase-memory-mcp ^
+  mcp-memory cli list_projects '{}'</code></pre>
+
+      <p>
+        Note: because the mount path is <code>/repo</code>, the resulting
+        project name will typically be <code>repo</code>. If you already used
+        <code>/repo</code> for a different repository previously, you’ll either
+        overwrite that project or end up reusing the same project name.
+      </p>
+
+      <div class="note">
+        <p><strong>Tip (recommended for many repos):</strong></p>
+        <p>
+          If you plan to index many repositories, prefer the parent-folder mount
+          pattern in section <strong>6.4</strong> (mount
+          <code>C:\GitHub\repos</code> to <code>/repos</code>) so each repo gets
+          a unique project name. For <code>officehours</code>, that would mean
+          placing it under <code>C:\GitHub\repos\officehours</code> (as a real
+          directory), then indexing <code>/repos/officehours</code>.
+        </p>
+      </div>
+
+      <h3>6.6 Adding new repos to be indexed (step-by-step)</h3>
+      <p>
+        Use this when you want to create/clone a new repository and make sure it
+        is indexed in a repeatable way.
+      </p>
+
+      <h4>Step 6.6.1 — Choose a standard location (recommended)</h4>
+      <p>
+        For multiple repos, use a single parent folder like
+        <code>C:\GitHub\repos</code> so indexing is consistent.
+      </p>
+      <pre><code>mkdir C:\GitHub\repos</code></pre>
+
+      <h4>Step 6.6.2 — Create or clone the repo</h4>
+      <p>
+        If the repo already exists remotely, clone it. If you’re creating a new
+        one locally, initialize it.
+      </p>
+      <pre><code># Clone example
+cd C:\GitHub\repos
+git clone &lt;your-repo-url&gt;
+
+# Or initialize a brand-new repo
+mkdir C:\GitHub\repos\my-new-repo
+cd C:\GitHub\repos\my-new-repo
+git init</code></pre>
+
+      <h4>Step 6.6.3 — Index the new repo</h4>
+      <p>Mount the parent folder once and index by subfolder path.</p>
+      <pre><code>docker run --rm ^
+  -v C:\GitHub\repos:/repos ^
+  -v cbm-data:/home/cbm/.cache/codebase-memory-mcp ^
+  mcp-memory cli index_repository '{"repo_path":"/repos/my-new-repo","mode":"moderate"}'</code></pre>
+
+      <h4>Step 6.6.4 — Verify it appears as its own project</h4>
+      <pre><code>docker run --rm ^
+  -v cbm-data:/home/cbm/.cache/codebase-memory-mcp ^
+  mcp-memory cli list_projects '{}'</code></pre>
+    </section>
+
+    <section id="architecture">
+      <h2>7) Architecture and how it works</h2>
+
+      <h3>7.1 Components</h3>
+      <ul>
+        <li>
+          <strong>VS Code Copilot Chat MCP Host:</strong> launches MCP servers
+          configured in VS Code settings
+        </li>
+        <li>
+          <strong>codebase-memory-mcp (Dockerized):</strong> reads repo files,
+          builds a graph, persists it to a cache directory
+        </li>
+        <li>
+          <strong>Persistent cache volume:</strong> Docker volume
+          <code>cbm-data</code> mounted to
+          <code>/home/cbm/.cache/codebase-memory-mcp</code>
+        </li>
+      </ul>
+
+      <h3>7.2 Data flow</h3>
+      <ol>
+        <li>
+          Repo is mounted into container at a stable path (recommended:
+          <code>/workspace</code> or <code>/repo</code>)
+        </li>
+        <li>
+          Index tool walks files, extracts definitions/usages, and builds edges
+          (calls/imports/usages/etc.)
+        </li>
+        <li>Graph is saved into the cache volume</li>
+        <li>
+          Future queries operate on the graph without re-reading everything
+          unless re-indexed
+        </li>
+      </ol>
+
+      <h3>7.3 Useful tools (high level)</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Tool</th>
+            <th>Use</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>index_repository</code></td>
+            <td>Build/update graph</td>
+          </tr>
+          <tr>
+            <td><code>list_projects</code></td>
+            <td>Show indexed projects</td>
+          </tr>
+          <tr>
+            <td><code>index_status</code></td>
+            <td>Index status details</td>
+          </tr>
+          <tr>
+            <td><code>get_architecture</code></td>
+            <td>High-level architecture summary</td>
+          </tr>
+          <tr>
+            <td><code>search_graph</code></td>
+            <td>Find symbols by pattern / degree</td>
+          </tr>
+          <tr>
+            <td><code>trace_path</code></td>
+            <td>Call graph tracing</td>
+          </tr>
+          <tr>
+            <td><code>query_graph</code></td>
+            <td>Cypher queries over the graph</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="vscode">
+      <h2>8) VS Code MCP configuration</h2>
+
+      <p>
+        Root cause for “index not found” symptoms in Copilot Chat: VS Code user
+        settings originally only configured the <code>drawio</code> MCP server.
+      </p>
+
+      <h3>8.1 Where the setting lives</h3>
+      <p>
+        File:
+        <code
+          >C:\Users\thiagobeier\AppData\Roaming\Code\User\settings.json</code
+        >
+      </p>
+
+      <h3>8.2 The MCP server entry that was added</h3>
+      <p>
+        This starts <code>mcp-memory</code> via Docker in
+        <strong>stdio</strong> mode (no port publishing needed), mounts the repo
+        to <code>/workspace</code>, and uses the persistent cache volume:
+      </p>
+      <pre><code>"chat.mcp.servers": {
+  "drawio": {
+    "command": "npx",
+    "args": ["-y", "@diagrams-net/mcp-server"]
+  },
+  "codebase-memory": {
+    "command": "docker",
+    "args": [
+      "run",
+      "--rm",
+      "-i",
+      "-v",
+      "C:\\GitHub\\intuneassignments-website:/workspace",
+      "-v",
+      "cbm-data:/home/cbm/.cache/codebase-memory-mcp",
+      "mcp-memory"
+    ]
+  }
+}</code></pre>
+
+      <h3>8.2.1 Alternative: one MCP server for many repos</h3>
+      <p>
+        If you keep many repositories under a single parent folder (example:
+        <code>C:\GitHub\repos</code>), you can mount that parent once and then
+        index different subfolders by changing <code>repo_path</code>
+        in the tool call.
+      </p>
+      <pre><code>"chat.mcp.servers": {
+  "codebase-memory": {
+    "command": "docker",
+    "args": [
+      "run",
+      "--rm",
+      "-i",
+      "-v",
+      "C:\\GitHub\\repos:/repos",
+      "-v",
+      "cbm-data:/home/cbm/.cache/codebase-memory-mcp",
+      "mcp-memory"
+    ]
+  }
+}</code></pre>
+
+      <p>Example tool calls you’d use from Copilot:</p>
+      <pre><code>index_repository({"repo_path":"/repos/intuneassignments-website","mode":"moderate"})
+
+list_projects({})
+
+index_status({"project":"intuneassignments-website"})</code></pre>
+
+      <div class="note">
+        <p>
+          <strong>Important:</strong> After changing MCP settings, do a VS Code
+          window reload so Copilot picks up the new server.
+        </p>
+        <pre><code>Command Palette -&gt; Developer: Reload Window</code></pre>
+      </div>
+
+      <h3>8.3 Index from inside VS Code</h3>
+      <p>
+        Once the MCP server is registered and running, you can use tools like
+        <code>index_repository</code> from Copilot. If you have both
+        <code>repo</code> and <code>workspace</code> projects in cache, pick one
+        and stick to it.
+      </p>
+    </section>
+
+    <section id="ops">
+      <h2>9) Day-to-day operations</h2>
+
+      <h3>9.1 Re-index after a large refactor</h3>
+      <pre><code>docker run --rm ^
+  -v C:\GitHub\intuneassignments-website:/repo ^
+  -v cbm-data:/home/cbm/.cache/codebase-memory-mcp ^
+  mcp-memory cli index_repository '{"repo_path":"/repo","mode":"moderate"}'</code></pre>
+
+      <h3>9.2 List projects in cache</h3>
+      <pre><code>docker run --rm ^
+  -v cbm-data:/home/cbm/.cache/codebase-memory-mcp ^
+  mcp-memory cli list_projects '{}'</code></pre>
+
+      <h3>9.3 Delete a project (cleanup)</h3>
+      <pre><code>docker run --rm ^
+  -v cbm-data:/home/cbm/.cache/codebase-memory-mcp ^
+  mcp-memory cli delete_project '{"project":"repo"}'</code></pre>
+
+      <h3>9.4 Cache reset (nuclear option)</h3>
+      <pre><code>docker volume rm cbm-data
+docker volume create cbm-data</code></pre>
+    </section>
+
+    <section id="troubleshooting">
+      <h2>10) Troubleshooting checklist</h2>
+
+      <h3>A) "Indexing says indexed but list_projects is empty"</h3>
+      <ul>
+        <li>
+          Ensure you are using the <strong>same cache location</strong> each
+          time (same Docker volume mount).
+        </li>
+        <li>
+          If you index without mounting <code>cbm-data</code>, results won’t
+          persist.
+        </li>
+      </ul>
+
+      <h3>B) "discover files=0"</h3>
+      <ul>
+        <li>
+          Confirm the mount path is correct by listing it from a throwaway
+          container.
+        </li>
+        <li>
+          Avoid indexing through Windows symlinks inside a bind mount; mount the
+          real repo path directly.
+        </li>
+      </ul>
+      <pre><code>docker run --rm -v C:\GitHub\intuneassignments-website:/repo ubuntu:24.04 bash -lc "ls -la /repo | head"</code></pre>
+
+      <h3>C) "Docker container has no ports"</h3>
+      <ul>
+        <li>
+          That’s fine for MCP stdio mode; but if you expected a browser UI, you
+          must enable UI and publish ports.
+        </li>
+      </ul>
+
+      <h3>D) VS Code can’t see the server/tools</h3>
+      <ul>
+        <li>Verify <code>chat.mcp.servers</code> includes the server entry</li>
+        <li>
+          Run <strong>Developer: Reload Window</strong> after editing settings
+        </li>
+        <li>
+          Make sure Docker is running and your user can run
+          <code>docker</code> commands
+        </li>
+      </ul>
+
+      <h3>E) Confirm your symlink is OK (Windows-side)</h3>
+      <pre><code>Get-Item 'C:\mcp-workspace\intuneassignments-website' | Format-List *</code></pre>
+    </section>
+
+    <section id="reference">
+      <h2>11) Command reference (everything we ran)</h2>
+
+      <h3>Windows filesystem</h3>
+      <pre><code>dir C:\mcp-workspace
+
+Get-Item 'C:\mcp-workspace\intuneassignments-website' | Format-List *
+
+Get-ChildItem 'C:\mcp-workspace\intuneassignments-website' | Select-Object -First 10 | Format-Table Name,Mode,Length</code></pre>
+
+      <h3>Docker (inventory)</h3>
+      <pre><code>docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"
+
+    docker volume create cbm-data
+
+docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.Size}}" | Select-String -Pattern 'mcp-memory|codebase-memory'
+
+docker port mcp-memory
+
+docker logs --tail 200 mcp-memory
+
+docker inspect mcp-memory --format "Image={{.Config.Image}} Cmd={{json .Config.Cmd}} ExposedPorts={{json .Config.ExposedPorts}} PortBindings={{json .HostConfig.PortBindings}} Binds={{json .HostConfig.Binds}}"</code></pre>
+
+      <h3>Docker (MCP server CLI)</h3>
+      <pre><code>docker run --rm -i mcp-memory --help</code></pre>
+
+      <h3>Mount checks</h3>
+      <pre><code>docker run --rm -v C:\mcp-workspace:/repos ubuntu:24.04 bash -lc "ls -la /repos; echo '---'; ls -la /repos/intuneassignments-website | head"</code></pre>
+
+      <h3>Indexing (failed attempt via symlink)</h3>
+      <pre><code>docker run --rm -v C:\mcp-workspace:/repos -v cbm-data:/home/cbm/.cache/codebase-memory-mcp mcp-memory cli index_repository '{"repo_path":"/repos/intuneassignments-website","mode":"moderate"}'</code></pre>
+
+      <h3>Indexing (working)</h3>
+      <pre><code>docker run --rm -v C:\GitHub\intuneassignments-website:/repo -v cbm-data:/home/cbm/.cache/codebase-memory-mcp mcp-memory cli index_repository '{"repo_path":"/repo","mode":"moderate"}'</code></pre>
+
+      <h3>Indexing (multiple repos under a single parent)</h3>
+      <pre><code>docker run --rm -v C:\GitHub\repos:/repos -v cbm-data:/home/cbm/.cache/codebase-memory-mcp mcp-memory cli index_repository '{"repo_path":"/repos/intuneassignments-website","mode":"moderate"}'</code></pre>
+
+      <h3>Indexing an existing repo (officehours)</h3>
+      <pre><code>docker run --rm -v C:\GitHub\officehours:/repo -v cbm-data:/home/cbm/.cache/codebase-memory-mcp mcp-memory cli index_repository '{"repo_path":"/repo","mode":"moderate"}'</code></pre>
+
+      <h3>Indexing a new repo created under C:\GitHub\repos</h3>
+      <pre><code>mkdir C:\GitHub\repos\my-new-repo
+    cd C:\GitHub\repos\my-new-repo
+    git init
+
+    docker run --rm -v C:\GitHub\repos:/repos -v cbm-data:/home/cbm/.cache/codebase-memory-mcp mcp-memory cli index_repository '{"repo_path":"/repos/my-new-repo","mode":"moderate"}'</code></pre>
+
+      <h3>Project list</h3>
+      <pre><code>docker run --rm -v cbm-data:/home/cbm/.cache/codebase-memory-mcp mcp-memory cli list_projects '{}'</code></pre>
+
+      <h3>VS Code settings validation</h3>
+      <pre><code>python -c "import json; json.load(open(r'C:\\Users\\thiagobeier\\AppData\\Roaming\\Code\\User\\settings.json','r',encoding='utf-8')); print('settings.json OK')"</code></pre>
+    </section>
+
+    <section id="mermaid">
+      <h2>12) Mermaid diagram (setup overview)</h2>
+      <p>
+        The diagram below represents the working sandbox setup: indexing happens
+        via the MCP server (stdio) and data persists in <code>cbm-data</code>.
+        The visualization UI is served by a separate UI-enabled container that
+        proxies a loopback-only UI listener to a Docker-published port.
+      </p>
+
+      <div id="mermaid-status" class="note" style="display: none"></div>
+
+      <div id="mermaid-diagram" class="mermaid"></div>
+
+      <details>
+        <summary>Show Mermaid source</summary>
+        <!-- prettier-ignore-start -->
+        <pre><code id="mermaid-source">flowchart TB
+  subgraph Host[Windows Host]
+    RepoA[C:/GitHub/intuneassignments-website]
+    ReposRoot["C:/GitHub/repos (optional)"]
+    VSCode["VS Code + Copilot Chat&lt;br/&gt;(MCP host)"]
+    Browser[Browser&lt;br/&gt;http://localhost:9749]
+    Docker[Docker Desktop]
+    Vol[(Docker volume: cbm-data)]
+  end
+
+  subgraph MCPServer["MCP Server Container&lt;br/&gt;image: mcp-memory&lt;br/&gt;(stdio MCP build)"]
+    MCP["codebase-memory-mcp&lt;br/&gt;(stdin/stdout JSON-RPC)"]
+    Cache1[/ /home/cbm/.cache/codebase-memory-mcp /]
+    WorkMount[/ /workspace OR /repo OR /repos /]
+  end
+
+  subgraph UIContainer[UI Container&lt;br/&gt;ubuntu:24.04 + UI binary + socat]
+    UI[codebase-memory-mcp UI build&lt;br/&gt;listens: 127.0.0.1:9749]
+    Socat[socat&lt;br/&gt;listens: 0.0.0.0:9750&lt;br/&gt;forwards -&gt; 127.0.0.1:9749]
+    Cache2[/ /home/cbm/.cache/codebase-memory-mcp /]
+  end
+
+  %% VS Code runs the MCP server over stdio (no HTTP)
+  VSCode --&gt;|"docker run --rm -i ... mcp-memory"| Docker
+  Docker --&gt; MCPServer
+  RepoA --&gt;|bind mount| WorkMount
+  ReposRoot --&gt;|"bind mount (optional)"| WorkMount
+  Vol --&gt;|volume mount| Cache1
+  MCP --&gt; Cache1
+
+  %% Indexing/queries
+  VSCode --&gt;|index_repository / search_graph / query_graph| MCP
+
+  %% UI reads the same persisted cache
+  Docker --&gt; UIContainer
+  Vol --&gt;|volume mount| Cache2
+  Cache2 --&gt; UI
+  UI --&gt; Socat
+  Docker --&gt;|publish host 9749 -&gt; container 9750| Browser
+  Browser --&gt;|HTTP GET| Socat
+
+  %% Why two containers
+  MCPServer -.-&gt;|"Purpose: MCP tools over stdio\n(no ports published)"| VSCode
+  UIContainer -.-&gt;|"Purpose: visualization UI\n(loopback bind requires proxy)"| Browser</code></pre>
+        <!-- prettier-ignore-end -->
+      </details>
+    </section>
+
+    <section id="backup-restore">
+      <h2>13) Backup &amp; restore (containers + indexed data)</h2>
+      <p>
+        For sandbox validation and safe promotion to prod, the main thing you
+        want to preserve is the indexed graph stored in the Docker volume
+        <code>cbm-data</code>. Containers themselves are disposable.
+      </p>
+
+      <h3>13.1 What to back up</h3>
+      <ul>
+        <li>
+          <strong>Required:</strong> Docker volume <code>cbm-data</code> (holds
+          <code>repo.db</code>, <code>workspace.db</code>, config)
+        </li>
+        <li>
+          <strong>Optional:</strong> Docker image <code>mcp-memory</code> (so a
+          sandbox can run without rebuilding)
+        </li>
+        <li>
+          <strong>Optional:</strong> VS Code user settings (your
+          <code>chat.mcp.servers</code> configuration)
+        </li>
+      </ul>
+
+      <h3>13.2 Backup the indexed data volume (cbm-data)</h3>
+      <p>
+        This creates a tar.gz of the volume contents to a folder on the host.
+      </p>
+      <pre><code># Choose a backup folder on the host
+$BackupDir = "C:\\mcp-backups"
+New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
+
+# Create a timestamped backup file
+$Stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+$BackupFile = "$BackupDir\\cbm-data-$Stamp.tgz"
+
+docker run --rm ^
+  -v cbm-data:/data ^
+  -v ${BackupDir}:/backup ^
+  ubuntu:24.04 bash -lc "tar czf /backup/$(basename $BackupFile) -C /data ."</code></pre>
+
+      <h3>13.3 Restore the indexed data volume (cbm-data)</h3>
+      <p>
+        This restores a previously created backup into a fresh
+        <code>cbm-data</code> volume.
+      </p>
+      <pre><code>$BackupDir = "C:\\mcp-backups"
+$BackupFile = "$BackupDir\\cbm-data-YYYYMMDD-HHMMSS.tgz"  # replace
+
+# WARNING: this deletes the existing indexed data volume
+docker volume rm cbm-data
+docker volume create cbm-data
+
+docker run --rm ^
+  -v cbm-data:/data ^
+  -v ${BackupDir}:/backup ^
+  ubuntu:24.04 bash -lc "tar xzf /backup/$(basename $BackupFile) -C /data"</code></pre>
+
+      <h3>13.4 Validate after restore</h3>
+      <pre><code>docker run --rm ^
+  -v cbm-data:/home/cbm/.cache/codebase-memory-mcp ^
+  mcp-memory cli list_projects '{}'
+
+docker run --rm ^
+  -v cbm-data:/home/cbm/.cache/codebase-memory-mcp ^
+  mcp-memory cli index_status '{"project":"repo"}'</code></pre>
+
+      <h3>13.5 Backup/restore the mcp-memory image (optional)</h3>
+      <p>
+        Backing up the image is useful for air-gapped or slow sandbox
+        environments so you don’t need to rebuild/pull anything.
+      </p>
+      <pre><code># Verify the image exists
+docker images mcp-memory
+
+# Backup (timestamped)
+$BackupDir = "C:\\mcp-backups"
+$Stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+$ImageBackup = "$BackupDir\\mcp-memory-$Stamp.tar"
+
+docker save mcp-memory:latest -o $ImageBackup
+
+# Restore
+docker load -i $ImageBackup</code></pre>
+
+      <h3>
+        13.6 Backup/restore VS Code user settings (chat.mcp.servers) (optional)
+      </h3>
+      <p>
+        Your MCP server registration lives in your VS Code user settings. If you
+        want to replicate the setup in a sandbox, export the MCP section from
+        <code>settings.json</code> and re-import it.
+      </p>
+
+      <h4>13.6.1 Backup (export only the MCP servers config)</h4>
+      <pre><code># Source settings
+$Settings = "C:\\Users\\thiagobeier\\AppData\\Roaming\\Code\\User\\settings.json"
+
+# Destination backup
+$BackupDir = "C:\\mcp-backups"
+New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
+$Stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+$McpBackup = "$BackupDir\\vscode-chat.mcp.servers-$Stamp.json"
+
+# Export only chat.mcp.servers
+$json = Get-Content -Raw $Settings | ConvertFrom-Json
+$json."chat.mcp.servers" | ConvertTo-Json -Depth 20 | Set-Content -Encoding UTF8 $McpBackup
+
+Write-Host "Saved: $McpBackup"</code></pre>
+
+      <h4>13.6.2 Restore (merge into settings.json)</h4>
+      <div class="note">
+        <p>
+          This merges the saved MCP servers map into your existing
+          <code>settings.json</code>. It does not overwrite unrelated settings.
+        </p>
+      </div>
+      <pre><code>$Settings = "C:\\Users\\thiagobeier\\AppData\\Roaming\\Code\\User\\settings.json"
+$McpBackup = "C:\\mcp-backups\\vscode-chat.mcp.servers-YYYYMMDD-HHMMSS.json"  # replace
+
+$settingsJson = Get-Content -Raw $Settings | ConvertFrom-Json
+$mcpServers = Get-Content -Raw $McpBackup | ConvertFrom-Json
+
+$settingsJson."chat.mcp.servers" = $mcpServers
+
+$settingsJson | ConvertTo-Json -Depth 50 | Set-Content -Encoding UTF8 $Settings
+
+Write-Host "Updated: $Settings"
+Write-Host "Next: VS Code -> Developer: Reload Window"</code></pre>
+
+      <h3>13.7 Containers are disposable</h3>
+      <p>
+        You can always recreate containers from the image + volume. Examples:
+      </p>
+      <pre><code># Stop/remove UI container
+docker stop cbm-ui
+docker rm cbm-ui
+
+# Re-run indexing on demand (recreates/updates graph data in cbm-data)
+docker run --rm ^
+  -v C:\\GitHub\\intuneassignments-website:/repo ^
+  -v cbm-data:/home/cbm/.cache/codebase-memory-mcp ^
+  mcp-memory cli index_repository '{"repo_path":"/repo","mode":"moderate"}'</code></pre>
+    </section>
+
+    <footer>
+      <p>
+        If you want, we can also generate a short
+        <code>support.md</code> version for quick copy/paste, but this file is
+        intentionally verbose.
+      </p>
+    </footer>
+  </body>
+</html>

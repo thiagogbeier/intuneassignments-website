@@ -3,28 +3,36 @@
 import { useState, useMemo, useCallback } from "react";
 import {
   FileDown,
+  FileText,
   CheckCircle2,
   RotateCcw,
   Loader2,
 } from "lucide-react";
 import { Card, CardContent } from "~/components/ui/card";
 import type { PolicyData } from "~/types/graph";
+import type { FeaturesData } from "~/types/features";
 import {
   REPORT_CATEGORIES,
   generateHtmlReport,
   downloadHtmlReport,
 } from "~/services/report-generator";
+import { generateAndDownloadPdf } from "~/services/pdf-report-generator";
 
 interface ExportPreviewProps {
   policies: PolicyData[];
+  features: FeaturesData | null;
+  featuresLoading: boolean;
 }
 
-export function ExportPreview({ policies }: ExportPreviewProps) {
+export function ExportPreview({ policies, features, featuresLoading }: ExportPreviewProps) {
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(
     () => new Set(REPORT_CATEGORIES.map((c) => c.id)),
   );
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDone, setIsDone] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [isPdfDone, setIsPdfDone] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   const categoryCounts = useMemo(
     () =>
@@ -84,6 +92,23 @@ export function ExportPreview({ policies }: ExportPreviewProps) {
       }
     }, 100);
   }, [policies, selectedCategories]);
+
+  const handleGeneratePdf = useCallback(async () => {
+    if (!features) return;
+    setIsGeneratingPdf(true);
+    setPdfError(null);
+    try {
+      await generateAndDownloadPdf(policies, features);
+      setIsPdfDone(true);
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      setPdfError(
+        err instanceof Error ? err.message : "PDF generation failed",
+      );
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  }, [policies, features]);
 
   const allSelected = REPORT_CATEGORIES.every((c) =>
     selectedCategories.has(c.id),
@@ -198,6 +223,77 @@ export function ExportPreview({ policies }: ExportPreviewProps) {
             {selectedCategories.size === 0 && (
               <p className="mt-2 text-xs text-muted-foreground text-center">
                 Select at least one section to export.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* PDF Export */}
+        <Card>
+          <CardContent className="p-6">
+            <h2 className="text-lg font-semibold mb-3">Full PDF Report</h2>
+            <p className="text-xs text-muted-foreground mb-4">
+              Exports all policies + feature detection data as a single PDF.
+            </p>
+            {pdfError ? (
+              <div className="space-y-3 text-center">
+                <p className="text-sm font-medium text-destructive">
+                  {pdfError}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleGeneratePdf}
+                  disabled={!features}
+                  className="inline-flex items-center gap-2 rounded-md bg-muted px-4 py-2 text-sm font-medium hover:bg-muted/80 transition-colors w-full justify-center disabled:opacity-50"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Try Again
+                </button>
+              </div>
+            ) : isPdfDone ? (
+              <div className="space-y-3 text-center">
+                <CheckCircle2 className="mx-auto h-10 w-10 text-green-500" />
+                <p className="text-sm font-medium text-green-700 dark:text-green-400">
+                  PDF downloaded!
+                </p>
+                <button
+                  type="button"
+                  onClick={handleGeneratePdf}
+                  className="inline-flex items-center gap-2 rounded-md bg-muted px-4 py-2 text-sm font-medium hover:bg-muted/80 transition-colors w-full justify-center"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Download Again
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleGeneratePdf}
+                disabled={isGeneratingPdf || !features || featuresLoading}
+                className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors w-full justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isGeneratingPdf ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Generating PDF&hellip;
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-4 w-4" />
+                    Generate &amp; Download PDF
+                  </>
+                )}
+              </button>
+            )}
+            {featuresLoading && (
+              <p className="mt-2 text-xs text-muted-foreground text-center">
+                <Loader2 className="inline h-3 w-3 animate-spin mr-1" />
+                Loading features data&hellip;
+              </p>
+            )}
+            {!featuresLoading && !features && (
+              <p className="mt-2 text-xs text-muted-foreground text-center">
+                Features data unavailable. PDF export disabled.
               </p>
             )}
           </CardContent>
